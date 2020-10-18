@@ -25,6 +25,7 @@ Thumbs.db
 
 #Visual Studio Added
 bin/
+lib/
 *.lib
 *.sbr
 *.resharper.user
@@ -38,6 +39,7 @@ App_Data/
 *.resharper.user
 *.suo
 *.user
+.vs
 NuGet/
 build/
 

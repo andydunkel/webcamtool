@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30413.136
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WebCamLib", "WebCamLib\WebCamLib.vcxproj", "{FD48314A-9615-4BA6-913A-03787FB2DD30}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebCamWrapper", "WebCamWrapper\WebCamWrapper.csproj", "{CC5D5149-0092-4508-AC34-2ABE1468A1C9}"
@@ -9,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebCamWrapper", "WebCamWrap
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo", "Demo\Demo.csproj", "{C86E37D6-BE07-4B1C-B89A-8FC1A9A6CBB8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebcamConfigurationTool", "WebcamConfigurationTool\WebcamConfigurationTool.csproj", "{8568AF26-504E-43C8-9170-86C8638DD971}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -70,8 +74,23 @@ Global
 		{C86E37D6-BE07-4B1C-B89A-8FC1A9A6CBB8}.Release|Win32.Build.0 = Release|Any CPU
 		{C86E37D6-BE07-4B1C-B89A-8FC1A9A6CBB8}.Release|x64.ActiveCfg = Release|Any CPU
 		{C86E37D6-BE07-4B1C-B89A-8FC1A9A6CBB8}.Release|x64.Build.0 = Release|Any CPU
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Debug|Win32.ActiveCfg = Debug|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Debug|Win32.Build.0 = Debug|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Debug|x64.ActiveCfg = Debug|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Release|Any CPU.ActiveCfg = Release|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Release|Mixed Platforms.Build.0 = Release|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Release|Win32.ActiveCfg = Release|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Release|Win32.Build.0 = Release|x86
+		{8568AF26-504E-43C8-9170-86C8638DD971}.Release|x64.ActiveCfg = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D7D624C0-04DD-435B-9A95-00B5B2DB6A39}
 	EndGlobalSection
 EndGlobal
