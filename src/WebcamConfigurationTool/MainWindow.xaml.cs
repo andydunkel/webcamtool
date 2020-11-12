@@ -11,7 +11,6 @@ namespace WebcamConfigurationTool
     /// </summary>
     public partial class MainWindow
     {
-
         public MainWindow()
         {
             StyleManager.ApplicationTheme = new VisualStudio2019Theme();
