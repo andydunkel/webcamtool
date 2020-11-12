@@ -1,0 +1,9 @@
+Deutsch
+-------
+
+Webcam in Windows 10 konfigurieren. Viele ältere Webcams funktionieren in Windows 10 zwar ohne Probleme, bringen aber kein Tool mehr für die Konfiguration mit. Zum Beispiel die beliebte Webcam LifeCam Cinema von Microsoft. In den Einstellungen können Sie Helligkeit, Autofokus, Kontrast und weitere Einstellungen vornehmen. In der Live-Vorschau können Sie die Änderungen gleich prüfen.
+
+Englisch
+--------
+
+Configure the webcam in Windows 10. Many older webcams work without problems in Windows 10, but they don't come with a tool for configuration anymore. For example the popular webcam LifeCam Cinema from Microsoft. In the settings you can adjust brightness, autofocus, contrast and other settings. In the live preview, you can check the changes immediately.
