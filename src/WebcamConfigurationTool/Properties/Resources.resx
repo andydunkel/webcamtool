@@ -123,4 +123,7 @@
   <data name="MainWindow_Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="CheckBoxShowWebcam.Content" xml:space="preserve">
+	  <value>Show Webcam Image</value>
+  </data>
 </root>
