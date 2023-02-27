@@ -5,7 +5,7 @@
         xmlns:properties="clr-namespace:WebcamConfigurationTool.Properties"
         Title="{x:Static properties:Resources.MainWindow_Title}"
         WindowStartupLocation="CenterScreen"
-        Height="600"
+        Height="900"
         Width="800">
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -22,34 +22,61 @@
                     <ColumnDefinition Width="1*"></ColumnDefinition>
                     <ColumnDefinition Width="1*"></ColumnDefinition>
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"></RowDefinition>
+                    <RowDefinition Height="Auto"></RowDefinition>
+                    <RowDefinition Height="Auto"></RowDefinition>
+                </Grid.RowDefinitions>
                 <telerik:RadComboBox Grid.Column="0"
                                      x:Name="ComboWebcams"
+                                     Grid.Row="0"
                                      SelectionChanged="ComboWebcams_OnSelectionChanged"></telerik:RadComboBox>
 
                 <telerik:RadButton x:Name="ButtonSettings"
+                                   Visibility="Collapsed"
                                    Command="telerik:RadWebCamCommands.ShowSettingsDialog"
                                    CommandTarget="{Binding ElementName=WebCam}"
                                    Grid.Column="1"
+                                   Grid.Row="0"
                                    Margin="10,0,0,0"
                                    Content="{x:Static properties:Resources.MainWindow_Settings}"></telerik:RadButton>
                 <CheckBox Grid.Column="2" 
                           Margin="10,0,0,0"
                           Content="{x:Static properties:Resources.CheckBoxShowWebcam_Content}" 
                           IsChecked="True"
+                          Grid.Row="0"
                           Unchecked="CheckBoxShowWebcam_OnChecked"
                           Checked="CheckBoxShowWebcam_OnChecked"
                           VerticalContentAlignment="Center"
                           x:Name="CheckBoxShowWebcam"></CheckBox>
+
+                <TextBlock Text="Resolution" Grid.Row="1" Grid.Column="0" Margin="0,5,0,0" HorizontalAlignment="Right" VerticalAlignment="Center"></TextBlock>
+                <ComboBox x:Name="ComboRes" Grid.Row="1" 
+                          SelectionChanged="ComboRes_SelectionChanged"
+                          Grid.Column="1" 
+                          Margin="10,5,0,0"></ComboBox>
+
+                <WrapPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                    <TextBlock Text="Record path: " Margin="0,5,0,0" VerticalAlignment="Center"></TextBlock>
+                    <TextBox x:Name="TextExportPath" Width="300" Margin="10,5,0,0" VerticalAlignment="Center"></TextBox>
+                    <Button x:Name="ButtonFolder" Content="..." Margin="10,5,0,0" 
+                            Click="ButtonFolder_OnClick"
+                            VerticalAlignment="Center" MinWidth="40" MinHeight="20"></Button>
+                </WrapPanel>
             </Grid>
         </GroupBox>
 
         <StackPanel Grid.Row="1">
             <telerik:RadWebCam x:Name="WebCam"
                                AutoStart="False"
+                               MaxWidth="400"
+                               MaxHeight="400"
                                BorderThickness="0"
                                SettingsButtonVisibility="Collapsed"
                                SnapshotButtonVisibility="Collapsed"
-                               RecordingButtonVisibility="Collapsed" />
+                               RecordingButtonVisibility="Visible" />
+
+            <telerik:CameraSettingsControl WebCam="{Binding ElementName=WebCam}"/>
         </StackPanel>
 
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right">

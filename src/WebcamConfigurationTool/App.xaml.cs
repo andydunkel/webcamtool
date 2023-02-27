@@ -11,15 +11,13 @@ namespace WebcamConfigurationTool
         public App()
         {
            InitializeComponent();
-
-           /*
+               
            var myCultureInfo = new CultureInfo("en");
            CultureInfo.DefaultThreadCurrentCulture = myCultureInfo;
            CultureInfo.DefaultThreadCurrentUICulture = myCultureInfo;
 
            Thread.CurrentThread.CurrentCulture = myCultureInfo;
            Thread.CurrentThread.CurrentUICulture = myCultureInfo;
-           */
         }
     }
 }
