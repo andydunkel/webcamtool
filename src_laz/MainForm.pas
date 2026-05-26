@@ -34,6 +34,7 @@ type
     procedure StartPreview(CameraIndex: Integer);
     procedure StopPreview;
     procedure UpdateVideoWindowSize;
+    procedure OptimizeCameraFormat(Capture: ICaptureGraphBuilder2; Camera: IBaseFilter);
   public
   end;
 
@@ -46,6 +47,42 @@ implementation
 
 uses
   Windows, Variants;
+
+const
+  IID_IAMStreamConfig: TGUID = '{C6E13340-30AC-11D0-A18C-00A0C9118956}';
+
+type
+  // Fehlende DirectShow-Strukturen für das Format-Management
+  PAMMediaType = ^TAMMediaType;
+  TAMMediaType = record
+    majortype: TGUID;
+    subtype: TGUID;
+    bFixedSizeSamples: BOOL;
+    bTemporalCompression: BOOL;
+    lSampleSize: ULONG;
+    formattype: TGUID;
+    pUnk: IUnknown;
+    cbFormat: ULONG;
+    pbFormat: Pointer;
+  end;
+
+  IAMStreamConfig = interface(IUnknown)
+    ['{C6E13340-30AC-11D0-A18C-00A0C9118956}']
+    function SetFormat(pmt: PAMMediaType): HResult; stdcall;
+    function GetFormat(out pmt: PAMMediaType): HResult; stdcall;
+    function GetNumberOfCapabilities(out piCount: Integer; out piSize: Integer): HResult; stdcall;
+    function GetStreamCaps(iIndex: Integer; out ppmt: PAMMediaType; pSCC: Pointer): HResult; stdcall;
+  end;
+
+  PVideoInfoHeader = ^TVideoInfoHeader;
+  TVideoInfoHeader = record
+    rcSource: TRect;
+    rcTarget: TRect;
+    dwBitRate: DWORD;
+    dwBitErrorRate: DWORD;
+    AvgTimePerFrame: Int64;
+    bmiHeader: TBitmapInfoHeader;
+  end;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
@@ -93,7 +130,6 @@ begin
       Continue;
     end;
 
-    // Read FriendlyName
     varName := Unassigned;
     if PropBag.Read('FriendlyName', varName, nil) <> S_OK then
     begin
@@ -104,7 +140,6 @@ begin
 
     cboCameras.Items.Add(VarToStr(varName));
 
-    // Store Moniker directly in array for later use
     SetLength(FMonikers, count + 1);
     FMonikers[count] := Moniker;
     Inc(count);
@@ -117,9 +152,148 @@ begin
   cboCameras.ItemIndex := 0;
 end;
 
+procedure TfrmMain.OptimizeCameraFormat(Capture: ICaptureGraphBuilder2; Camera: IBaseFilter);
+const
+  MEDIASUBTYPE_MJPG: TGUID = '{47504A4D-0000-0010-8000-00AA00389B71}';
+  MEDIASUBTYPE_YUY2: TGUID = '{32595559-0000-0010-8000-00AA00389B71}';
+  MEDIASUBTYPE_NV12: TGUID = '{3231564E-0000-0010-8000-00AA00389B71}';
+  FORMAT_VideoInfo: TGUID  = '{05589F80-C356-11CE-BF01-00AA0055595A}';
+  TARGET_WIDTH = 800; // Target width for medium resolution (e.g., 800x600 or 640x480)
+var
+  StreamConfig: IAMStreamConfig;
+  pUnk: IUnknown;
+  Count, Size: Integer;
+  i: Integer;
+  pmt, BestMediaType: PAMMediaType;
+  SCC: array of Byte;
+  VIH: PVideoInfoHeader;
+  hr: HResult;
+  FrameRate: Double;
+  CurrentScore, BestScore: Integer;
+  IsMJPEG: Boolean;
+  DebugLog: TStringList;
+  FormatName: String;
+  BestFormatDesc: String;
+begin
+  if (Capture = nil) or (Camera = nil) then Exit;
+
+  hr := Capture.FindInterface(@PIN_CATEGORY_CAPTURE, @MEDIATYPE_Video, Camera, IID_IAMStreamConfig, pUnk);
+  if Failed(hr) or (pUnk = nil) then Exit;
+  if not Supports(pUnk, IID_IAMStreamConfig, StreamConfig) then Exit;
+
+  hr := StreamConfig.GetNumberOfCapabilities(Count, Size);
+  if Failed(hr) or (Count = 0) then Exit;
+
+  SetLength(SCC, Size);
+  BestMediaType := nil;
+  BestScore := -1;
+  BestFormatDesc := 'None';
+
+  DebugLog := TStringList.Create;
+  try
+    DebugLog.Add('--- Available Camera Formats ---');
+
+    for i := 0 to Count - 1 do
+    begin
+      pmt := nil;
+      hr := StreamConfig.GetStreamCaps(i, pmt, @SCC[0]);
+      if Succeeded(hr) and (pmt <> nil) then
+      begin
+        if CompareMem(@pmt^.formattype, @FORMAT_VideoInfo, SizeOf(TGUID)) and (pmt^.pbFormat <> nil) then
+        begin
+          VIH := PVideoInfoHeader(pmt^.pbFormat);
+
+          if VIH^.AvgTimePerFrame > 0 then
+            FrameRate := 10000000.0 / VIH^.AvgTimePerFrame
+          else
+            FrameRate := 0;
+
+          IsMJPEG := CompareMem(@pmt^.subtype, @MEDIASUBTYPE_MJPG, SizeOf(TGUID));
+
+          if IsMJPEG then FormatName := 'MJPEG'
+          else if CompareMem(@pmt^.subtype, @MEDIASUBTYPE_YUY2, SizeOf(TGUID)) then FormatName := 'YUY2'
+          else if CompareMem(@pmt^.subtype, @MEDIASUBTYPE_NV12, SizeOf(TGUID)) then FormatName := 'NV12'
+          else FormatName := 'RAW/Other';
+
+          // --- Modified Scoring System for Medium Resolution ---
+          CurrentScore := 0;
+
+          // 1. High priority for fluid video
+          if FrameRate >= 25.0 then Inc(CurrentScore, 10000);
+
+          // 2. Priority for USB bandwidth compression
+          if IsMJPEG then Inc(CurrentScore, 5000);
+
+          // 3. Target medium resolution: Calculate penalty based on distance from TARGET_WIDTH
+          // We add 4000 as a base value so the score stays positive, then subtract the difference
+          Inc(CurrentScore, 4000 - Abs(VIH^.bmiHeader.biWidth - TARGET_WIDTH));
+
+          DebugLog.Add(Format('[%3d] %-10s %4dx%-4d @ %5.1f FPS | Score: %d',
+            [i, FormatName, VIH^.bmiHeader.biWidth, VIH^.bmiHeader.biHeight, FrameRate, CurrentScore]));
+
+          // Accept only formats with >= 15 FPS
+          if (FrameRate >= 15.0) and (CurrentScore > BestScore) then
+          begin
+            BestScore := CurrentScore;
+            BestFormatDesc := Format('%s %dx%d @ %.1f FPS', [FormatName, VIH^.bmiHeader.biWidth, VIH^.bmiHeader.biHeight, FrameRate]);
+
+            if BestMediaType <> nil then
+            begin
+              if BestMediaType^.pbFormat <> nil then CoTaskMemFree(BestMediaType^.pbFormat);
+              if BestMediaType^.pUnk <> nil then BestMediaType^.pUnk._Release;
+              CoTaskMemFree(BestMediaType);
+            end;
+
+            BestMediaType := pmt;
+          end
+          else
+          begin
+            if pmt^.pbFormat <> nil then CoTaskMemFree(pmt^.pbFormat);
+            if pmt^.pUnk <> nil then pmt^.pUnk._Release;
+            CoTaskMemFree(pmt);
+          end;
+        end
+        else
+        begin
+          DebugLog.Add(Format('[%3d] Unsupported format type', [i]));
+          if pmt^.pbFormat <> nil then CoTaskMemFree(pmt^.pbFormat);
+          if pmt^.pUnk <> nil then pmt^.pUnk._Release;
+          CoTaskMemFree(pmt);
+        end;
+      end;
+    end;
+
+    DebugLog.Add('');
+    DebugLog.Add('--- Selected Format ---');
+    DebugLog.Add(BestFormatDesc);
+
+    if BestMediaType <> nil then
+    begin
+      hr := StreamConfig.SetFormat(BestMediaType);
+
+      if Failed(hr) then
+        DebugLog.Add('WARNING: SetFormat failed! hr = 0x' + IntToHex(Cardinal(hr), 8))
+      else
+        DebugLog.Add('SetFormat applied successfully.');
+
+      if BestMediaType^.pbFormat <> nil then CoTaskMemFree(BestMediaType^.pbFormat);
+      if BestMediaType^.pUnk <> nil then BestMediaType^.pUnk._Release;
+      CoTaskMemFree(BestMediaType);
+    end;
+
+    DebugLog.SaveToFile(ExtractFilePath(ParamStr(0)) + 'CameraDebug.txt');
+
+    // Debug-Meldung für die aktuelle Auswahl
+    ShowMessage('Selected Camera Format: ' + BestFormatDesc + sLineBreak + sLineBreak +
+                'Detailed log saved to: CameraDebug.txt');
+
+  finally
+    DebugLog.Free;
+  end;
+end;
+
 procedure TfrmMain.StartPreview(CameraIndex: Integer);
 const
-  // Hardcoded original Microsoft GUID for IBaseFilter to prevent header translation errors
   REAL_IID_IBaseFilter: TGUID = '{56A86895-0AD4-11CE-B03A-0020AF0BA770}';
 var
   CameraFilter: IBaseFilter;
@@ -131,11 +305,9 @@ begin
   StopPreview;
   if (CameraIndex < 0) or (CameraIndex >= Length(FMonikers)) then Exit;
 
-  // 1. Create BindContext (fallback, some drivers require it)
   if CreateBindCtx(0, BindCtx) <> S_OK then
     BindCtx := nil;
 
-  // 2. Request IUnknown (bypass FPC header bugs)
   hr := FMonikers[CameraIndex].BindToObject(BindCtx, nil, IID_IUnknown, Unk);
   if Failed(hr) or (Unk = nil) then
   begin
@@ -143,7 +315,6 @@ begin
     Exit;
   end;
 
-  // 3. Type-safe cast with explicit GUID using Supports()
   if not Supports(Unk, REAL_IID_IBaseFilter, CameraFilter) then
   begin
     ShowMessage('Error: The device rejects IBaseFilter.' + sLineBreak + sLineBreak +
@@ -154,7 +325,6 @@ begin
     Exit;
   end;
 
-  // --- Graph building ---
   hr := CoCreateInstance(CLSID_FilterGraph, nil, CLSCTX_INPROC_SERVER,
     IID_IGraphBuilder, FGraph);
   if Failed(hr) then Exit;
@@ -168,7 +338,8 @@ begin
   wName := 'Camera';
   FGraph.AddFilter(CameraFilter, PWideChar(wName));
 
-  // Render preview pin, fallback to capture pin
+  OptimizeCameraFormat(FCapture, CameraFilter);
+
   hr := FCapture.RenderStream(@PIN_CATEGORY_PREVIEW, @MEDIATYPE_Video,
     CameraFilter, nil, nil);
   if Failed(hr) then
@@ -183,7 +354,7 @@ begin
     FVideoWindow.put_Owner(OAHWND(pnlPreview.Handle));
     FVideoWindow.put_WindowStyle(WS_CHILD or WS_CLIPSIBLINGS or WS_CLIPCHILDREN);
     UpdateVideoWindowSize;
-    FVideoWindow.put_Visible(-1);  // OATRUE
+    FVideoWindow.put_Visible(-1);
   end;
 
   FGraph.QueryInterface(IID_IMediaControl, FMediaCtrl);
