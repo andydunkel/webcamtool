@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs,
-  StdCtrls, ExtCtrls, ActiveX, DSInterfaces; // MFInterfaces entfernt
+  StdCtrls, ExtCtrls, ActiveX, DSInterfaces;
 
 type
   TfrmMain = class(TForm)
@@ -25,7 +25,7 @@ type
     procedure cboCamerasChange(Sender: TObject);
     procedure pnlPreviewResize(Sender: TObject);
   private
-    FMonikers:     array of IMoniker; // Nutzt Moniker statt IMFActivate
+    FMonikers:     array of IMoniker;
     FGraph:        IGraphBuilder;
     FCapture:      ICaptureGraphBuilder2;
     FMediaCtrl:    IMediaControl;
@@ -50,7 +50,6 @@ uses
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
   CoInitialize(nil);
-  // MFStartup entfernt
   EnumerateCameras;
   if (Length(FMonikers) > 0) and chkShowPreview.Checked then
     StartPreview(0);
@@ -60,7 +59,6 @@ procedure TfrmMain.FormDestroy(Sender: TObject);
 begin
   StopPreview;
   SetLength(FMonikers, 0);
-  // MFShutdown entfernt
   CoUninitialize;
 end;
 
@@ -95,7 +93,7 @@ begin
       Continue;
     end;
 
-    // FriendlyName auslesen (Anzeigename der Kamera)
+    // Read FriendlyName
     varName := Unassigned;
     if PropBag.Read('FriendlyName', varName, nil) <> S_OK then
     begin
@@ -106,23 +104,22 @@ begin
 
     cboCameras.Items.Add(VarToStr(varName));
 
-    // Moniker direkt im Array speichern für spätere Verwendung
+    // Store Moniker directly in array for later use
     SetLength(FMonikers, count + 1);
     FMonikers[count] := Moniker;
     Inc(count);
 
     PropBag := nil;
-    // WICHTIG: Moniker hier NICHT auf nil setzen, da die Referenz im Array benötigt wird!
   end;
 
   if cboCameras.Items.Count = 0 then
-    cboCameras.Items.Add('(keine Kamera gefunden)');
+    cboCameras.Items.Add('(no camera detected)');
   cboCameras.ItemIndex := 0;
 end;
 
 procedure TfrmMain.StartPreview(CameraIndex: Integer);
 const
-  // Hardcodierte originale Microsoft GUID für IBaseFilter, um Header-Fehler auszuschließen
+  // Hardcoded original Microsoft GUID for IBaseFilter to prevent header translation errors
   REAL_IID_IBaseFilter: TGUID = '{56A86895-0AD4-11CE-B03A-0020AF0BA770}';
 var
   CameraFilter: IBaseFilter;
@@ -134,30 +131,30 @@ begin
   StopPreview;
   if (CameraIndex < 0) or (CameraIndex >= Length(FMonikers)) then Exit;
 
-  // 1. BindContext erstellen (als Fallback, falls der Treiber es verlangt)
+  // 1. Create BindContext (fallback, some drivers require it)
   if CreateBindCtx(0, BindCtx) <> S_OK then
     BindCtx := nil;
 
-  // 2. IUnknown anfordern (Das hat funktioniert)
+  // 2. Request IUnknown (bypass FPC header bugs)
   hr := FMonikers[CameraIndex].BindToObject(BindCtx, nil, IID_IUnknown, Unk);
   if Failed(hr) or (Unk = nil) then
   begin
-    ShowMessage('Fehler beim Binden (IUnknown): 0x' + IntToHex(Cardinal(hr), 8));
+    ShowMessage('Error binding camera (IUnknown): 0x' + IntToHex(Cardinal(hr), 8));
     Exit;
   end;
 
-  // 3. Typsicherer Cast mit expliziter GUID über die Pascal-Funktion Supports()
+  // 3. Type-safe cast with explicit GUID using Supports()
   if not Supports(Unk, REAL_IID_IBaseFilter, CameraFilter) then
   begin
-    ShowMessage('Fehler: Das Gerät verweigert IBaseFilter.' + sLineBreak + sLineBreak +
-                'Mögliche Ursachen:' + sLineBreak +
-                '1. Windows-Datenschutz blockiert die Kamera für Desktop-Apps.' + sLineBreak +
-                '2. Architektur-Konflikt (z.B. 32-Bit App greift auf 64-Bit virtuellen Treiber zu).' + sLineBreak +
-                '3. Die Kamera wird von einem anderen Programm blockiert.');
+    ShowMessage('Error: The device rejects IBaseFilter.' + sLineBreak + sLineBreak +
+                'Possible causes:' + sLineBreak +
+                '1. Windows privacy settings block camera access for desktop apps.' + sLineBreak +
+                '2. Architecture conflict (e.g., 32-bit app accessing a 64-bit virtual driver).' + sLineBreak +
+                '3. The camera is currently in use by another application.');
     Exit;
   end;
 
-  // --- Ab hier regulärer Graph-Aufbau ---
+  // --- Graph building ---
   hr := CoCreateInstance(CLSID_FilterGraph, nil, CLSCTX_INPROC_SERVER,
     IID_IGraphBuilder, FGraph);
   if Failed(hr) then Exit;
@@ -171,7 +168,7 @@ begin
   wName := 'Camera';
   FGraph.AddFilter(CameraFilter, PWideChar(wName));
 
-  // Preview Pin rendern, Fallback auf Capture Pin
+  // Render preview pin, fallback to capture pin
   hr := FCapture.RenderStream(@PIN_CATEGORY_PREVIEW, @MEDIATYPE_Video,
     CameraFilter, nil, nil);
   if Failed(hr) then
